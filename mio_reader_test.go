@@ -27,7 +27,7 @@ func BenchmarkRawReader(b *testing.B) {
 		if _, err := io.Copy(ioutil.Discard, file); err != nil {
 			b.Fatal("failed to copy data:", err)
 		}
-		if _, err := file.Seek(0, os.SEEK_SET); err != nil {
+		if _, err := file.Seek(0, io.SeekStart); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -52,7 +52,7 @@ func BenchmarkMioReader(b *testing.B) {
 		if _, err := io.Copy(ioutil.Discard, mr); err != nil {
 			b.Fatal("failed to copy data:", err)
 		}
-		if _, err := file.Seek(0, os.SEEK_SET); err != nil {
+		if _, err := file.Seek(0, io.SeekStart); err != nil {
 			b.Fatal(err)
 		}
 	}

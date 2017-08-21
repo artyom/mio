@@ -36,7 +36,7 @@ func (mw *Writer) Write(p []byte) (n int, err error) {
 	}
 	n, err = mw.Writer.Write(p)
 	if n > 0 && mw.h != nil {
-		mw.h.Update(time.Now().Sub(start).Nanoseconds())
+		mw.h.Update(time.Since(start).Nanoseconds())
 	}
 	return n, err
 }

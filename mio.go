@@ -1,11 +1,12 @@
-// Package meteredwriter provides tools to combine io.Writer and
+// Package mio provides tools to combine io.Writer and
 // metrics.Histogram interfaces, so that every non-empty Write call latency
 // value is sampled to Histogram.
 //
-// MeteredWriter can be used to bind standard metrics.Histogram to io.Writer.
-// SelfCleaningHistogram provides a wrapper over metrics.Histogram with
-// self-cleaning capabilities, which can be used for sharing one Histogram over
-// multiple io.Writers and cleaning sample pool after period of inactivity.
+// Writer and Reader can be used to bind standard metrics.Histogram to io.Writer
+// and io.Reader.  SelfCleaningHistogram provides a wrapper over
+// metrics.Histogram with self-cleaning capabilities, which can be used for
+// sharing one Histogram over multiple writers/readers and cleaning sample pool
+// after period of inactivity.
 //
 // This package is intended to be used with go-metrics:
 // (https://github.com/rcrowley/go-metrics) or metrics

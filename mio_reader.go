@@ -36,7 +36,7 @@ func (mr *Reader) Read(p []byte) (n int, err error) {
 	}
 	n, err = mr.Reader.Read(p)
 	if n > 0 && mr.h != nil {
-		mr.h.Update(time.Now().Sub(start).Nanoseconds())
+		mr.h.Update(time.Since(start).Nanoseconds())
 	}
 	return n, err
 }
