@@ -13,7 +13,7 @@
 package mio
 
 import (
-	"sync"
+	"context"
 	"time"
 )
 
@@ -41,9 +41,9 @@ type Histogram interface {
 // absence of Register() calls before timer fires.
 type SelfCleaningHistogram struct {
 	Histogram
-	c, q   chan struct{}
-	closed bool
-	wg     sync.WaitGroup
+	c      chan int
+	ctx    context.Context
+	cancel func()
 }
 
 // Registrar interface can be used to track object's concurrent usage.
@@ -64,10 +64,12 @@ type Registrar interface {
 // NewSelfCleaningHistogram returns SelfCleaningHistogram wrapping specified
 // histogram; its self-cleaning period set to delay.
 func NewSelfCleaningHistogram(histogram Histogram, delay time.Duration) *SelfCleaningHistogram {
+	ctx, cancel := context.WithCancel(context.Background())
 	h := &SelfCleaningHistogram{
 		Histogram: histogram,
-		c:         make(chan struct{}),
-		q:         make(chan struct{}),
+		c:         make(chan int),
+		ctx:       ctx,
+		cancel:    cancel,
 	}
 	// make sure goroutine is started before returning
 	guard := make(chan struct{})
@@ -81,20 +83,25 @@ func NewSelfCleaningHistogram(histogram Histogram, delay time.Duration) *SelfCle
 func (h *SelfCleaningHistogram) decay(delay time.Duration, guard chan<- struct{}) {
 	var t *time.Timer
 	close(guard)
+	var cnt int
 	for {
 		select {
-		case <-h.c:
-		case <-h.q:
+		case i := <-h.c:
+			cnt += i
+			switch cnt {
+			case 0:
+				t = time.AfterFunc(delay, h.Clear)
+			default:
+				if t != nil {
+					t.Stop()
+				}
+			}
+		case <-h.ctx.Done():
 			if t != nil {
 				t.Stop()
 			}
 			return
 		}
-		if t != nil {
-			t.Stop()
-		}
-		h.wg.Wait()
-		t = time.AfterFunc(delay, h.Clear)
 	}
 }
 
@@ -102,25 +109,22 @@ func (h *SelfCleaningHistogram) decay(delay time.Duration, guard chan<- struct{}
 // call, blocking self-cleaning timer until all object's users releases it with
 // Done() call.
 func (h *SelfCleaningHistogram) Register() {
-	h.wg.Add(1)
 	select {
-	case h.c <- struct{}{}:
-	default:
+	case h.c <- 1:
+	case <-h.ctx.Done():
 	}
 }
 
 // Done implements Registrar interface, using sync.WaitGroup.Done() for each
 // call.
 func (h *SelfCleaningHistogram) Done() {
-	h.wg.Done()
+	select {
+	case h.c <- -1:
+	case <-h.ctx.Done():
+	}
 }
 
 // Shutdown implements Registrar interface, it stops background goroutine. This
 // method should be called as the very last method on object and needed only if
 // object has to be removed and garbage collected.
-func (h *SelfCleaningHistogram) Shutdown() {
-	if !h.closed {
-		h.closed = true
-		close(h.q)
-	}
-}
+func (h *SelfCleaningHistogram) Shutdown() { h.cancel() }

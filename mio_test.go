@@ -4,6 +4,8 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"runtime"
+	"sync"
 	"testing"
 	"time"
 
@@ -141,4 +143,27 @@ func TestSelfCleaningHistogram_Shutdown(t *testing.T) {
 	if cnt := sh.Count(); cnt != 3 {
 		t.Fatal("should have 3 registered samples, got:", cnt)
 	}
+}
+
+func TestSelfCleaningHistogram_concurrent(t *testing.T) {
+	if runtime.NumCPU() < 2 {
+		t.Skip("NumCPU<2, skipping: this test requires parallelism")
+	}
+	defer runtime.GOMAXPROCS(runtime.GOMAXPROCS(4))
+	sh := NewSelfCleaningHistogram(
+		metrics.NewHistogram(metrics.NewUniformSample(100)),
+		100*time.Millisecond)
+	defer sh.Shutdown()
+	const c = 10000
+	var wg sync.WaitGroup
+	wg.Add(c)
+	for i := 0; i < c; i++ {
+		go func() {
+			sh.Register()
+			sh.Update(100)
+			sh.Done()
+			wg.Done()
+		}()
+	}
+	wg.Wait()
 }
